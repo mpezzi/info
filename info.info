@@ -1,0 +1,4 @@
+; $Id;
+name          = "Info"
+description   = "Provide quick method for viewing information about nodes."
+core          = "6.x"

@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * @file
+ * Provide quick method for viewing information about nodes.
+ */
+
+/**
+ * Implements hook_init().
+ */
+function info_init() {
+  drupal_add_css(drupal_get_path('module', 'info') .'/info.css');
+  drupal_add_js(drupal_get_path('module', 'info') .'/info.js');
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function info_perm() {
+  return array(
+    'view node information',
+  );
+}
+
+/**
+ * Implementation of hook_footer().
+ */
+function info_footer() {
+  if ( user_access('view node information') && arg(0) == 'node' && is_numeric(arg(1)) ) {
+    return theme('info', node_load(arg(1)));
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function info_theme() {
+  return array(
+    'info' => array(
+      'arguments' => array('node' => NULL),
+      'template' => 'info',
+    ),
+    'info_field' => array(
+      'arguments' => array('value' => NULL, 'label' => NULL),
+    ),
+  );
+}
+
+/**
+ * Return a themed info field.
+ */
+function theme_info_field($value, $label = NULL) {
+  $output = '';
+  
+  if ( !is_null($label) ) {
+    $output .= '<span class="info-label">'. $label .': </span>';
+  }
+  
+  $output .= '<span class="info-value">'. $value .'</span>';
+  
+  return '<div class="info-field">'. $output .'</div>';
+}
+
+/**
+ * Implementation of hook_preprocess_info().
+ */
+function template_preprocess_info(&$vars) {
+  $vars['content'] = drupal_render(info_get_info($vars['node']));
+}
+
+/**
+ * Return information about a node.
+ */
+function info_get_info($object) {
+  foreach ( module_implements('info') as $module ) {
+    $function = $module . '_info';
+    $function('node', $object, $info);
+  }
+  
+  foreach ( $info as $key => $i ) {
+    $info[$key]['#value'] = theme('info_field', $i['#value'], isset($i['#title']) ? $i['#title'] : NULL);
+  }
+  
+  return $info;
+}
+
+/**
+ * Implements hook_info().
+ */
+function info_info($op, $object, &$info) {
+  if ( $op == 'node' ) {
+    $taxonomy = taxonomy_node_get_terms($object);
+    
+    $terms = array();
+    foreach ( $taxonomy as $term ) {
+      $terms[] = $term->name;
+    }
+    
+    $info = array(
+      'type' => array(
+        '#title' => 'Type',
+        '#value' => l(node_get_types('name', $object), 'admin/content/node-type/' . $object->type . '/fields'),
+        '#weight' => 1,
+      ),
+      'published' => array(
+        '#title' => 'Status',
+        '#value' => $object->status ? t('Published') : t('Unpublished'),
+        '#weight' => 2,
+      ),
+      'author' => array(
+        '#title' => 'Author',
+        '#value' => theme('username', $object),
+        '#weight' => 3,
+      ),
+      'taxonomy' => array(
+        '#title' => 'Terms',
+        '#value' => count($terms) ? implode(', ', $terms) : 'None',
+        '#weight' => 4,
+      ),
+      'id' => array(
+        '#title' => 'ID',
+        '#value' => $object->nid,
+        '#weight' => 5,
+      ),
+    );
+  }
+}
